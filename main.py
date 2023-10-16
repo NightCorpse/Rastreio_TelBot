@@ -305,9 +305,9 @@ def checkPackets(type):
 
                 if len(packetResponse) != len(packetFile):
   
-                    packetResponse = packetResponse[0]
+                    packetLastStatus = packetResponse[0]
 
-                    if "entregue" in packetResponse['status']:
+                    if "entregue" in packetLastStatus['status']:
                         if os.path.exists(f"correios/{packetCod}.json"):
                             os.remove(f"correios/{packetCod}.json")
                     else:                    
@@ -324,18 +324,18 @@ def checkPackets(type):
                             else:
                                 text = f"📦Código: <b>{packetCod}</b>\n\n<b>✅ Encomenda Atualizada!</b>\n\n"
 
-                            if "postado" in packetResponse['status']:
-                                text += f"Status: 📥 {packetResponse['status']}\n{packetResponse['date'].replace('Data  :','Data:')}\n{packetResponse['place']}"
-                            elif "trânsito" in packetResponse['status']:
-                                text += f"Status: 🚚 {packetResponse['status']}\n{packetResponse['date'].replace('Data  :','Data:')}\n{packetResponse['place']}"
-                            elif "saiu para entrega" in packetResponse['status']:
-                                text += f"Status: 📤 {packetResponse['status']}\n{packetResponse['date'].replace('Data  :','Data:')}\n{packetResponse['place']}"
-                            elif "entregue" in packetResponse['status']:
-                                text += f"Status: ✅ {packetResponse['status']}\n{packetResponse['date'].replace('Data  :','Data:')}\n{packetResponse['place']}" 
+                            if "postado" in packetLastStatus['status']:
+                                text += f"Status: 📥 {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
+                            elif "trânsito" in packetLastStatus['status']:
+                                text += f"Status: 🚚 {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
+                            elif "saiu para entrega" in packetLastStatus['status']:
+                                text += f"Status: 📤 {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
+                            elif "entregue" in packetLastStatus['status']:
+                                text += f"Status: ✅ {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}" 
                                 users.remove_option("Correios", packetCod)
                                 users.write(open(f"users/{user}", "w"))               
                             else:
-                                text += f"Status: {packetResponse['status']}\n{packetResponse['date'].replace('Data  :','Data:')}\n{packetResponse['place']}"                             
+                                text += f"Status: {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"                             
 
                             telBot.send_message(user, text)
                 break
