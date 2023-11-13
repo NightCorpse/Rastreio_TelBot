@@ -48,7 +48,7 @@ def send_commands(message):
 
     if message.chat.type != "private":
         return
-    telBot.reply_to(message, f"<b>Olá, este bot serve para fazer rastreamento de encomendas e está atualmente em desenvolvimento.</b>\nV1.3\n\n - Use o comando /correios para rastrear uma encomenda.\n * Exemplo: /correios QA000000000BR *nome da encomenda*")
+    telBot.reply_to(message, f"<b>Olá, este bot serve para fazer rastreamento de encomendas e está atualmente em desenvolvimento.</b>\nV1.7\n\n - Use o comando /correios para rastrear uma encomenda.\n * Exemplo: /correios QA000000000BR *nome da encomenda*")
 
 @telBot.message_handler(commands=['encomendas'])
 def encomendas(message):
@@ -290,58 +290,88 @@ def checkPackets(type):
 
         tries = 0
         while True:
-            response = requests.post('https://www.nuvemshop.com.br/ferramentas/tracking', data=payload, headers=header)
-            if response.status_code != 200:
+            try:
+                response = requests.post('https://www.nuvemshop.com.br/ferramentas/tracking', data=payload, headers=header)
+                if response.status_code != 200:
+                    raise Exception("Status Code != 200")
+                elif response.status_code == 200:
+                    packetResponse = response.json()[0]
+
+                    if type == "pending" and packetResponse == []:
+                        get_creation_date(f'correios/{packetCod}.json')
+                        if (datetime.datetime.now() - get_creation_date(f'correios/{packetCod}.json')).days >= 15:
+                            for user in os.listdir("users"):
+                                users = load_user(user.replace('.ini', ''))
+                                name = users.get("Correios", packetCod)
+
+                                if name != "":
+                                    text = f"📦Encomenda: <b>{name}</b>\nCódigo: <b>{packetCod}</b>"
+                                else:
+                                    text = f"📦Código: <b>{packetCod}</b>"
+
+                                if users.has_option("Correios", packetCod):
+                                    telBot.send_message(user.replace('.ini', ''), f"{text}\n\n<b>❌ Encomenda deletada por falta de atualização!</b>")
+
+                                    users.remove_option("Correios", packetCod)
+                                    users.write(open(f"users/{user}", "w"))
+                            os.remove(f"correios/{packetCod}.json")
+                            break
+
+                    if len(packetResponse) != len(packetFile):
+    
+                        packetLastStatus = packetResponse[0]
+
+                        if "entregue" in packetLastStatus['status']:
+                            if os.path.exists(f"correios/{packetCod}.json"):
+                                os.remove(f"correios/{packetCod}.json")
+                        else:                    
+                            with open(f'correios/{packetCod}.json', 'w') as file:
+                                json.dump(packetResponse, file, ensure_ascii=True, indent=4)
+
+                        for user in os.listdir("users"):
+                            users = load_user(user.replace('.ini', ''))
+                            if users.has_option("Correios", packetCod):
+
+                                name = users.get("Correios", packetCod)
+                                if name != "":
+                                    text = f"📦Encomenda: <b>{name}</b>\nCódigo: <b>{packetCod}</b>\n\n<b>🔄 Encomenda Atualizada!</b>\n\n"
+                                else:
+                                    text = f"📦Código: <b>{packetCod}</b>\n\n<b>🔄 Encomenda Atualizada!</b>\n\n"
+
+                                if "postado" in packetLastStatus['status']:
+                                    text += f"Status: 📥 {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
+                                elif "trânsito" in packetLastStatus['status']:
+                                    text += f"Status: 🚚 {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
+                                elif "saiu para entrega" in packetLastStatus['status']:
+                                    text += f"Status: 📤 {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
+                                elif "entregue" in packetLastStatus['status']:
+                                    text += f"Status: ✅ {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}" 
+                                    users.remove_option("Correios", packetCod)
+                                    users.write(open(f"users/{user}", "w"))  
+                                elif "aguardando pagamento" in packetLastStatus['status']:
+                                    text += f"Status: 🟠💰 {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"         
+                                elif "Pagamento confirmado" in packetLastStatus['status']:
+                                    text += f"Status: 🟢💸 {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
+                                elif "Encaminhado para fiscalização" in packetLastStatus['status']:
+                                    text += f"Status: 🟡👮🏻‍♂️ {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
+                                elif "Correios do Brasil" in packetLastStatus['status']:
+                                    text += f"Status: 🇧🇷 {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
+                                elif "no país de origem" in packetLastStatus['status']:
+                                    text += f"Status: 🌎 {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
+                                else:
+                                    text += f"Status: {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
+                                    with open("logs.txt", "a") as logs:
+                                        logs.write(f"{packetLastStatus['status']}\n")
+
+                                telBot.send_message(user, text)
+                    break
+            except Exception as e:
+                if tries >= 3:
+                    print(f"{e}")
+                    break
                 tries += 1
                 time.sleep(10)
-            elif response.status_code == 200:
-                packetResponse = response.json()[0]
-
-                if type == "pending" and packetResponse == []:
-                    get_creation_date(f'correios/{packetCod}.json')
-                    if (datetime.datetime.now() - get_creation_date(f'correios/{packetCod}.json')).days >= 15:
-                        os.remove(f"correios/{packetCod}.json")
-                        break
-
-                if len(packetResponse) != len(packetFile):
-  
-                    packetLastStatus = packetResponse[0]
-
-                    if "entregue" in packetLastStatus['status']:
-                        if os.path.exists(f"correios/{packetCod}.json"):
-                            os.remove(f"correios/{packetCod}.json")
-                    else:                    
-                        with open(f'correios/{packetCod}.json', 'w') as file:
-                            json.dump(packetResponse, file, ensure_ascii=True, indent=4)
-
-                    for user in os.listdir("users"):
-                        users = load_user(user.replace('.ini', ''))
-                        if users.has_option("Correios", packetCod):
-
-                            name = users.get("Correios", packetCod)
-                            if name != "":
-                                text = f"📦Encomenda: <b>{name}</b>\nCódigo: <b>{packetCod}</b>\n\n<b>✅ Encomenda Atualizada!</b>\n\n"
-                            else:
-                                text = f"📦Código: <b>{packetCod}</b>\n\n<b>✅ Encomenda Atualizada!</b>\n\n"
-
-                            if "postado" in packetLastStatus['status']:
-                                text += f"Status: 📥 {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
-                            elif "trânsito" in packetLastStatus['status']:
-                                text += f"Status: 🚚 {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
-                            elif "saiu para entrega" in packetLastStatus['status']:
-                                text += f"Status: 📤 {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
-                            elif "entregue" in packetLastStatus['status']:
-                                text += f"Status: ✅ {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}" 
-                                users.remove_option("Correios", packetCod)
-                                users.write(open(f"users/{user}", "w"))               
-                            else:
-                                text += f"Status: {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"                             
-
-                            telBot.send_message(user, text)
-                break
-            if tries >= 3:
-                break
-        time.sleep(15)
+        time.sleep(10)
        
 
 def schedule_polling():
@@ -355,6 +385,7 @@ def schedule_polling():
         schedule.run_pending()
         time.sleep(1)
 
+threading.Thread(target=checkPackets, args=("normal",)).start()
 threading.Thread(target=schedule_polling).start()
 
 print(f"@{telBot.get_me().username} is running...")
