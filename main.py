@@ -181,10 +181,20 @@ def correios(message):
                         elif "saiu para entrega" in field['status']:
                             subtext += f"Status: 📤 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
                         elif "entregue" in field['status']:
-                            subtext += f"Status: ✅ {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
+                            subtext += f"Status: ✅ {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n" 
                             save = False
+                        elif "aguardando pagamento" in field['status']:
+                            subtext += f"Status: 🟠💰 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"         
+                        elif "Pagamento confirmado" in field['status']:
+                            subtext += f"Status: 🟢💸 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
+                        elif "Encaminhado para fiscalização" in field['status']:
+                            subtext += f"Status: 🟡👮🏻‍♂️ {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
+                        elif "Correios do Brasil" in field['status']:
+                            subtext += f"Status: 🇧🇷 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
+                        elif "no país de origem" in field['status']:
+                            subtext += f"Status: 🌎 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
                         else:
-                            subtext += f" Status: {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n" 
+                            subtext += f"Status: {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"  
 
                 if save == True:
                     users = load_user(chat_id)
@@ -236,11 +246,20 @@ def correios(message):
                             elif "saiu para entrega" in field['status']:
                                 subtext += f"Status: 📤 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
                             elif "entregue" in field['status']:
-                                subtext += f"Status: ✅ {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
+                                subtext += f"Status: ✅ {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n" 
                                 save = False
+                            elif "aguardando pagamento" in field['status']:
+                                subtext += f"Status: 🟠💰 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"         
+                            elif "Pagamento confirmado" in field['status']:
+                                subtext += f"Status: 🟢💸 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
+                            elif "Encaminhado para fiscalização" in field['status']:
+                                subtext += f"Status: 🟡👮🏻‍♂️ {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
+                            elif "Correios do Brasil" in field['status']:
+                                subtext += f"Status: 🇧🇷 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
+                            elif "no país de origem" in field['status']:
+                                subtext += f"Status: 🌎 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
                             else:
-                                subtext += f"Status: {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"     
-
+                                subtext += f"Status: {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"    
                     if save == True:  
                         with open(f'correios/{cod}.json', 'w') as file:
                             json.dump(status, file, ensure_ascii=True, indent=4)
