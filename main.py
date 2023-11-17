@@ -51,6 +51,41 @@ def send_commands(message):
         return
     telBot.reply_to(message, f"<b>Olá, este bot serve para fazer rastreamento de encomendas e está atualmente em desenvolvimento.</b>\nV1.8\n\n - Use o comando /correios para rastrear uma encomenda.\n * Exemplo: /correios QA000000000BR *nome da encomenda*")
 
+def statusEmoji(status, type):
+
+    if type == "text":
+        space = ""
+    elif type == "subtext":
+        space = "\n\n"
+
+    text = ""
+
+    if "postado" in status['status']:
+        text += f"Status: 📥 {status['status']}\n{status['date'].replace('Data  :','Data:')}\n{status['place']}{space}"
+    elif "trânsito" in status['status']:
+        text += f"Status: 🚚 {status['status']}\n{status['date'].replace('Data  :','Data:')}\n{status['place']}{space}"
+    elif "saiu para entrega" in status['status']:
+        text += f"Status: 📤 {status['status']}\n{status['date'].replace('Data  :','Data:')}\n{status['place']}{space}"
+    elif "entregue" in status['status']:
+        text += f"Status: ✅ {status['status']}\n{status['date'].replace('Data  :','Data:')}\n{status['place']}{space}" 
+    elif "aguardando pagamento" in status['status']:
+        text += f"Status: 🟠💰 {status['status']}\n{status['date'].replace('Data  :','Data:')}\n{status['place']}{space}"         
+    elif "Pagamento confirmado" in status['status']:
+        text += f"Status: 🟢💸 {status['status']}\n{status['date'].replace('Data  :','Data:')}\n{status['place']}{space}"
+    elif "Encaminhado para fiscalização" in status['status']:
+        text += f"Status: 🟡👮🏻‍♂️ {status['status']}\n{status['date'].replace('Data  :','Data:')}\n{status['place']}{space}"
+    elif "Correios do Brasil" in status['status']:
+        text += f"Status: 🇧🇷 {status['status']}\n{status['date'].replace('Data  :','Data:')}\n{status['place']}{space}"
+    elif "no país de origem" in status['status']:
+        text += f"Status: 🌎 {status['status']}\n{status['date'].replace('Data  :','Data:')}\n{status['place']}{space}"
+    else:
+        text += f"Status: {status['status']}\n{status['date'].replace('Data  :','Data:')}\n{status['place']}{space}"
+        if type == "text":
+            with open("logs.txt", "a") as logs:
+                logs.write(f"{status['status']}\n")
+
+    return text    
+
 @telBot.message_handler(commands=['encomendas'])
 def encomendas(message):
 
@@ -70,7 +105,7 @@ def encomendas(message):
         for key, value in users["Correios"].items():
             if value == "":
                 value = key.upper()
-            markup.row(telebot.types.InlineKeyboardButton(value, callback_data=key.upper()), telebot.types.InlineKeyboardButton("❌", callback_data=f"del{key.upper()}"))
+            markup.row(telebot.types.InlineKeyboardButton(value, callback_data=f"view{key.upper()}"), telebot.types.InlineKeyboardButton("❌", callback_data=f"del{key.upper()}"))
         
     else:
         with open(f"users/{user_id}.ini", 'w') as file:
@@ -83,8 +118,8 @@ def encomendas(message):
     else:
         telBot.send_message(user_id, encomendas,reply_markup=markup)
         
-    @telBot.callback_query_handler(func=lambda query: True)
-    def callback_handler(query):
+    @telBot.callback_query_handler(func=lambda query: query.data.startswith('view') or query.data.startswith('del'))
+    def callback_handler1(query):
         chat_id = query.message.chat.id
         original_message = query.message
 
@@ -126,7 +161,7 @@ def encomendas(message):
                 telBot.edit_message_text(chat_id=chat_id, message_id=original_message.message_id, text=encomendas, reply_markup=markup)
             
         else:
-            correios(f"{query.data}:{chat_id}")
+            correios(f"{query.data.replace('view','')}:{chat_id}")
          
 
 @telBot.message_handler(commands=['correios'])
@@ -178,27 +213,10 @@ def correios(message):
                     subtext += "🛑 Aguardando Postagem!"
                 else:
                     for field in status:
-                        if "postado" in field['status']:
-                            subtext += f"Status: 📥 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
-                        elif "trânsito" in field['status']:
-                            subtext += f"Status: 🚚 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
-                        elif "saiu para entrega" in field['status']:
-                            subtext += f"Status: 📤 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
-                        elif "entregue" in field['status']:
-                            subtext += f"Status: ✅ {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n" 
+                        subtext += statusEmoji(field, "subtext")
+
+                        if "entregue" in subtext:
                             save = False
-                        elif "aguardando pagamento" in field['status']:
-                            subtext += f"Status: 🟠💰 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"         
-                        elif "Pagamento confirmado" in field['status']:
-                            subtext += f"Status: 🟢💸 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
-                        elif "Encaminhado para fiscalização" in field['status']:
-                            subtext += f"Status: 🟡👮🏻‍♂️ {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
-                        elif "Correios do Brasil" in field['status']:
-                            subtext += f"Status: 🇧🇷 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
-                        elif "no país de origem" in field['status']:
-                            subtext += f"Status: 🌎 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
-                        else:
-                            subtext += f"Status: {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"  
 
                 if save == True:
                     users = load_user(chat_id)
@@ -243,27 +261,11 @@ def correios(message):
                         subtext += "🛑 Aguardando Postagem!"
                     else:
                         for field in status:
-                            if "postado" in field['status']:
-                                subtext += f"Status: 📥 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
-                            elif "trânsito" in field['status']:
-                                subtext += f"Status: 🚚 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
-                            elif "saiu para entrega" in field['status']:
-                                subtext += f"Status: 📤 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
-                            elif "entregue" in field['status']:
-                                subtext += f"Status: ✅ {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n" 
+                            subtext += statusEmoji(field, "subtext")
+
+                            if "entregue" in subtext:
                                 save = False
-                            elif "aguardando pagamento" in field['status']:
-                                subtext += f"Status: 🟠💰 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"         
-                            elif "Pagamento confirmado" in field['status']:
-                                subtext += f"Status: 🟢💸 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
-                            elif "Encaminhado para fiscalização" in field['status']:
-                                subtext += f"Status: 🟡👮🏻‍♂️ {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
-                            elif "Correios do Brasil" in field['status']:
-                                subtext += f"Status: 🇧🇷 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
-                            elif "no país de origem" in field['status']:
-                                subtext += f"Status: 🌎 {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"
-                            else:
-                                subtext += f"Status: {field['status']}\n{field['date'].replace('Data  :','Data:')}\n{field['place']}\n\n"    
+
                     if save == True:  
                         with open(f'correios/{cod}.json', 'w') as file:
                             json.dump(status, file, ensure_ascii=True, indent=4)
@@ -335,26 +337,7 @@ def resumo(message):
                     else:
                         lastStatus = status[0]
 
-                        if "postado" in lastStatus['status']:
-                            resumoText += f"Status: 📥 {lastStatus['status']}\n{lastStatus['date'].replace('Data  :','Data:')}\n{lastStatus['place']}\n\n"
-                        elif "trânsito" in lastStatus['status']:
-                            resumoText += f"Status: 🚚 {lastStatus['status']}\n{lastStatus['date'].replace('Data  :','Data:')}\n{lastStatus['place']}\n\n"
-                        elif "saiu para entrega" in lastStatus['status']:
-                            resumoText += f"Status: 📤 {lastStatus['status']}\n{lastStatus['date'].replace('Data  :','Data:')}\n{lastStatus['place']}\n\n"
-                        elif "entregue" in lastStatus['status']:
-                            resumoText += f"Status: ✅ {lastStatus['status']}\n{lastStatus['date'].replace('Data  :','Data:')}\n{lastStatus['place']}\n\n" 
-                        elif "aguardando pagamento" in lastStatus['status']:
-                            resumoText += f"Status: 🟠💰 {lastStatus['status']}\n{lastStatus['date'].replace('Data  :','Data:')}\n{lastStatus['place']}\n\n"         
-                        elif "Pagamento confirmado" in lastStatus['status']:
-                            resumoText += f"Status: 🟢💸 {lastStatus['status']}\n{lastStatus['date'].replace('Data  :','Data:')}\n{lastStatus['place']}\n\n"
-                        elif "Encaminhado para fiscalização" in lastStatus['status']:
-                            resumoText += f"Status: 🟡👮🏻‍♂️ {lastStatus['status']}\n{lastStatus['date'].replace('Data  :','Data:')}\n{lastStatus['place']}\n\n"
-                        elif "Correios do Brasil" in lastStatus['status']:
-                            resumoText += f"Status: 🇧🇷 {lastStatus['status']}\n{lastStatus['date'].replace('Data  :','Data:')}\n{lastStatus['place']}\n\n"
-                        elif "no país de origem" in lastStatus['status']:
-                            resumoText += f"Status: 🌎 {lastStatus['status']}\n{lastStatus['date'].replace('Data  :','Data:')}\n{lastStatus['place']}\n\n"
-                        else:
-                            resumoText += f"Status: {lastStatus['status']}\n{lastStatus['date'].replace('Data  :','Data:')}\n{lastStatus['place']}\n\n"  
+                        resumoText += statusEmoji(lastStatus, "subtext")
                         
                     if i - limit == 0:
                         limit += 5
@@ -384,13 +367,13 @@ def resumo(message):
     except:
         telBot.send_message(user_id, f"<b>❌ Nenhuma encomenda cadastrada!</b>\n\nCadastre com: /correios QA000000000BR *nome da encomenda*")
 
-    @telBot.callback_query_handler(func=lambda query: True)
-    def callback_handler(query):
+    @telBot.callback_query_handler(func=lambda query: query.data.startswith('next') or query.data.startswith('previous') or query.data.startswith('home'))
+    def callback_handler2(query):
             
             chat_id = query.message.chat.id
             original_message = query.message
 
-            if query.message.chat.type != "private":
+            if query.message.chat.type != "private" or query.data.startswith("view") or query.data.startswith("del"):
                 return
             
             markup = telebot.types.InlineKeyboardMarkup()
@@ -493,30 +476,11 @@ def checkPackets(type):
                                 else:
                                     text = f"📦Código: <b>{packetCod}</b>\n\n<b>🔄 Encomenda Atualizada!</b>\n\n"
 
-                                if "postado" in packetLastStatus['status']:
-                                    text += f"Status: 📥 {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
-                                elif "trânsito" in packetLastStatus['status']:
-                                    text += f"Status: 🚚 {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
-                                elif "saiu para entrega" in packetLastStatus['status']:
-                                    text += f"Status: 📤 {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
-                                elif "entregue" in packetLastStatus['status']:
-                                    text += f"Status: ✅ {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}" 
+                                text += statusEmoji(packetLastStatus, "text")
+
+                                if "entregue" in text:
                                     users.remove_option("Correios", packetCod)
                                     users.write(open(f"users/{user}", "w"))  
-                                elif "aguardando pagamento" in packetLastStatus['status']:
-                                    text += f"Status: 🟠💰 {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"         
-                                elif "Pagamento confirmado" in packetLastStatus['status']:
-                                    text += f"Status: 🟢💸 {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
-                                elif "Encaminhado para fiscalização" in packetLastStatus['status']:
-                                    text += f"Status: 🟡👮🏻‍♂️ {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
-                                elif "Correios do Brasil" in packetLastStatus['status']:
-                                    text += f"Status: 🇧🇷 {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
-                                elif "no país de origem" in packetLastStatus['status']:
-                                    text += f"Status: 🌎 {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
-                                else:
-                                    text += f"Status: {packetLastStatus['status']}\n{packetLastStatus['date'].replace('Data  :','Data:')}\n{packetLastStatus['place']}"
-                                    with open("logs.txt", "a") as logs:
-                                        logs.write(f"{packetLastStatus['status']}\n")
 
                                 telBot.send_message(user, text)
                     break
