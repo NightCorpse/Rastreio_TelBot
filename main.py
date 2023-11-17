@@ -9,6 +9,7 @@ import datetime
 import telebot
 import time
 import json
+import re
 import os
 
 load_dotenv()
@@ -48,7 +49,7 @@ def send_commands(message):
 
     if message.chat.type != "private":
         return
-    telBot.reply_to(message, f"<b>Olá, este bot serve para fazer rastreamento de encomendas e está atualmente em desenvolvimento.</b>\nV1.7\n\n - Use o comando /correios para rastrear uma encomenda.\n * Exemplo: /correios QA000000000BR *nome da encomenda*")
+    telBot.reply_to(message, f"<b>Olá, este bot serve para fazer rastreamento de encomendas e está atualmente em desenvolvimento.</b>\nV1.8\n\n - Use o comando /correios para rastrear uma encomenda.\n * Exemplo: /correios QA000000000BR *nome da encomenda*")
 
 @telBot.message_handler(commands=['encomendas'])
 def encomendas(message):
@@ -145,6 +146,9 @@ def correios(message):
         
         if len(message.text.split()) >= 3:
             name = " ".join(message.text.split()[2:]).strip()
+            if len(name) > 24:
+                telBot.send_message(chat_id, "❌ O nome da encomenda não pode ultrapassar de 24 caracteres!")
+                return
         else:
             name = ""
     else:
@@ -291,6 +295,138 @@ def correios(message):
 
     else:
         telBot.send_message(chat_id, "❌ Código de rastreio inválido!\n<b>Exemplo: /correios QA000000000BR *nome da encomenda*</b>")
+        
+@telBot.message_handler(commands=['resumo'])
+def resumo(message):
+
+    user_id = str(message.chat.id)
+
+    if message.chat.type != "private":
+        return
+    
+    markup = telebot.types.InlineKeyboardMarkup()
+
+    try:
+        if f"{user_id}.ini" in os.listdir('users'):
+            user = load_user(user_id)
+            if len(user["Correios"].items()) == 0:
+                raise
+            else:
+
+                resumoText = ""
+
+                i = 1
+                limit = 5
+                pagData = []
+                for packet in user["Correios"]:
+                    try:
+                        with open(f"correios/{packet.upper()}.json", 'r') as file:
+                            status = json.load(file)
+                    except:
+                        continue
+
+                    if user["Correios"][packet] != "":
+                        resumoText += f"📦Encomenda: <b>{user['Correios'][packet]}</b>\nCódigo: <b>{packet.upper()}</b>\n"
+                    else:
+                        resumoText += f"📦Código: <b>{packet.upper()}</b>\n"
+                        
+                    if status == []:
+                        resumoText += f"Status: 🛑 Aguardando Postagem!\n\n"
+                    else:
+                        lastStatus = status[0]
+
+                        if "postado" in lastStatus['status']:
+                            resumoText += f"Status: 📥 {lastStatus['status']}\n{lastStatus['date'].replace('Data  :','Data:')}\n{lastStatus['place']}\n\n"
+                        elif "trânsito" in lastStatus['status']:
+                            resumoText += f"Status: 🚚 {lastStatus['status']}\n{lastStatus['date'].replace('Data  :','Data:')}\n{lastStatus['place']}\n\n"
+                        elif "saiu para entrega" in lastStatus['status']:
+                            resumoText += f"Status: 📤 {lastStatus['status']}\n{lastStatus['date'].replace('Data  :','Data:')}\n{lastStatus['place']}\n\n"
+                        elif "entregue" in lastStatus['status']:
+                            resumoText += f"Status: ✅ {lastStatus['status']}\n{lastStatus['date'].replace('Data  :','Data:')}\n{lastStatus['place']}\n\n" 
+                        elif "aguardando pagamento" in lastStatus['status']:
+                            resumoText += f"Status: 🟠💰 {lastStatus['status']}\n{lastStatus['date'].replace('Data  :','Data:')}\n{lastStatus['place']}\n\n"         
+                        elif "Pagamento confirmado" in lastStatus['status']:
+                            resumoText += f"Status: 🟢💸 {lastStatus['status']}\n{lastStatus['date'].replace('Data  :','Data:')}\n{lastStatus['place']}\n\n"
+                        elif "Encaminhado para fiscalização" in lastStatus['status']:
+                            resumoText += f"Status: 🟡👮🏻‍♂️ {lastStatus['status']}\n{lastStatus['date'].replace('Data  :','Data:')}\n{lastStatus['place']}\n\n"
+                        elif "Correios do Brasil" in lastStatus['status']:
+                            resumoText += f"Status: 🇧🇷 {lastStatus['status']}\n{lastStatus['date'].replace('Data  :','Data:')}\n{lastStatus['place']}\n\n"
+                        elif "no país de origem" in lastStatus['status']:
+                            resumoText += f"Status: 🌎 {lastStatus['status']}\n{lastStatus['date'].replace('Data  :','Data:')}\n{lastStatus['place']}\n\n"
+                        else:
+                            resumoText += f"Status: {lastStatus['status']}\n{lastStatus['date'].replace('Data  :','Data:')}\n{lastStatus['place']}\n\n"  
+                        
+                    if i - limit == 0:
+                        limit += 5
+
+                        pagData.append(resumoText)
+
+                        resumoText = ""
+                    i += 1 
+
+
+                if resumoText != "":
+                    pagData.append(resumoText)
+
+                if len(pagData) > 1:
+                    pagsTotal = len(pagData)
+
+                    markup.row(telebot.types.InlineKeyboardButton("➡", callback_data="next"))
+                    resumo = f"📦📦Resumo:\n📄 Pag: 1/{pagsTotal}\n\n"
+                else:
+                    resumo = "📦📦Resumo:\n\n"
+                
+                telBot.send_message(user_id, resumo + pagData[0], reply_markup=markup)
+        else:
+            with open(f"users/{user_id}.ini", 'w') as file:
+                file.write("[Correios]")
+            raise
+    except:
+        telBot.send_message(user_id, f"<b>❌ Nenhuma encomenda cadastrada!</b>\n\nCadastre com: /correios QA000000000BR *nome da encomenda*")
+
+    @telBot.callback_query_handler(func=lambda query: True)
+    def callback_handler(query):
+            
+            chat_id = query.message.chat.id
+            original_message = query.message
+
+            if query.message.chat.type != "private":
+                return
+            
+            markup = telebot.types.InlineKeyboardMarkup()
+
+            match = re.search(r'Pag: (\d+)/(\d+)', original_message.text)
+
+            pagAtual = int(match.group(1)) - 1
+            pagTotal = int(match.group(2)) - 1
+
+            nextPag = pagAtual + 1
+
+            previousPag = pagAtual - 1
+
+            if query.data == "next":
+
+                if nextPag == pagTotal:
+                    markup.row(telebot.types.InlineKeyboardButton("⬅", callback_data="previous"), telebot.types.InlineKeyboardButton("🏠", callback_data="home"))
+                else:
+                    markup.row(telebot.types.InlineKeyboardButton("⬅", callback_data="previous"), telebot.types.InlineKeyboardButton("🏠", callback_data="home"),telebot.types.InlineKeyboardButton("➡", callback_data="next"))
+
+                telBot.edit_message_text(chat_id=chat_id, message_id=original_message.message_id, text=f"📦📦Resumo:\n📄 Pag: {nextPag + 1}/{pagsTotal}\n\n" + pagData[nextPag], reply_markup=markup)
+            elif query.data == "previous":
+
+                if previousPag == 0 :
+                    markup.row(telebot.types.InlineKeyboardButton("➡", callback_data="next"))
+                else:
+                    markup.row(telebot.types.InlineKeyboardButton("⬅", callback_data="previous"), telebot.types.InlineKeyboardButton("🏠", callback_data="home"),telebot.types.InlineKeyboardButton("➡", callback_data="next"))
+
+                telBot.edit_message_text(chat_id=chat_id, message_id=original_message.message_id, text=f"📦📦Resumo:\n📄 Pag: {previousPag + 1}/{pagsTotal}\n\n" + pagData[previousPag], reply_markup=markup)
+                 
+            elif query.data == "home":
+
+                markup.row(telebot.types.InlineKeyboardButton("➡", callback_data="next"))
+
+                telBot.edit_message_text(chat_id=chat_id, message_id=original_message.message_id, text=f"📦📦Resumo:\n📄 Pag: 1/{pagsTotal}\n\n" + pagData[0], reply_markup=markup)
+            
 
 def checkPackets(type):
     for packet in os.listdir('correios'):
