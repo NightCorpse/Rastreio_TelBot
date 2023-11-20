@@ -149,7 +149,7 @@ def cidade(message):
             telBot.send_message(chat_id, "Digite um codigo de rastreio já entregue para cadastrar automaticamente sua cidade e ser alertado das encomendas mais próximas da entrega!\n\n<b>Exemplo: /cidade QA000000000BR</b>")
             return
         else:
-            telBot.send_message(chat_id, f"🏙 Cidade cadastrada: <b>{user.get('Settings', 'cidade')}</b>\n\n<b>Para alterar digite: /cidade QA000000000BR</b>")
+            telBot.send_message(chat_id, f"🏙 Cidade cadastrada: <b>{user.get('Settings', 'cidade')}</b>\n\n<b>Para alterar digite: /cidade QA000000000BR</b>\n<b>Para ver encomendas proximas utilize: /proximas</b>")
             return
         
     if len(cod) == 13 and cod[:2].isalpha() and cod[-2:].isalpha():
@@ -178,11 +178,11 @@ def cidade(message):
 
                     if user.has_option("Settings", "cidade"):
                         if user.get("Settings", "cidade") == cidade:
-                            msg = telBot.send_message(chat_id, f"🏙 Cidade já cadastrada!\n\n<b>Para alterar digite: /cidade QA000000000BR</b>")
+                            msg = telBot.send_message(chat_id, f"🏙 Cidade já cadastrada!\n\n<b>Para alterar digite: /cidade QA000000000BR</b>\n<b>Para ver encomendas proximas utilize: /proximas</b>")
                         elif user.get("Settings", "cidade") != "":
-                            msg = telBot.send_message(chat_id, f"🏙 Cidade alterada: <b>{cidade}</b>\n\n<b>Para alterar novamente digite: /cidade QA000000000BR</b>")
+                            msg = telBot.send_message(chat_id, f"🏙 Cidade alterada: <b>{cidade}</b>\n\n<b>Para alterar novamente digite: /cidade QA000000000BR</b>\n<b>Para ver encomendas proximas utilize: /proximas</b>")
                     else:
-                        msg = telBot.send_message(chat_id, f"🏙 Cidade cadastrada: <b>{cidade}</b>\n\n<b>Para alterar digite: /cidade QA000000000BR</b>")
+                        msg = telBot.send_message(chat_id, f"🏙 Cidade cadastrada: <b>{cidade}</b>\n\n<b>Para alterar digite: /cidade QA000000000BR</b>\n<b>Para ver encomendas proximas utilize: /proximas</b>")
                     
                     try:
                         user.set("Settings", "cidade", cidade)
